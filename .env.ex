@@ -1,0 +1,9 @@
+MONGODB_URI=mongodb+srv://katbowladigitalpostoffice_db_user:ertyokjhgfdsert46788u7ufhgrtyrtc@cluster0.uqutx7r.mongodb.net/?appName=Cluster0
+JWT_SECRET=replace_with_a_secure_secret
+PORT=5000
+
+CLOUDINARY_CLOUD_NAME=dzqevi0kd
+CLOUDINARY_API_KEY=138724113139564
+CLOUDINARY_API_SECRET=47R8cJmUGIYwP4-k7AelH8Tow3I
+
+
