@@ -8,7 +8,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['https://kdpo-lemon.vercel.app', 'http://localhost:5173', 'http://localhost:5000',"https://kdpobd.com", "https://www.kdpobd.com", "http://kdpobd.com", "http://www.kdpobd.com"],
+  origin: ['https://kdpooo.vercel.app', 'http://localhost:5173', 'http://localhost:5000',"https://kdpobd.com", "https://www.kdpobd.com", "http://kdpobd.com", "http://www.kdpobd.com"],
   credentials: true
 }));
 app.use(express.json());
