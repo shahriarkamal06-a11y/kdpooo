@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Batch model
 const batchSchema = new mongoose.Schema({
   name: {
     type: String,
