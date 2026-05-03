@@ -8,17 +8,51 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['https://kdpobd.com', 'http://localhost:5173', 'http://localhost:5000',"https://kdpobd.com", "https://www.kdpobd.com", "https://kdpobd.com", "http://www.kdpobd.com"],
+  origin: [
+    'https://kdpobd.com',
+    'https://www.kdpobd.com',
+    'http://localhost:5173',
+    'http://localhost:5000'
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --------------------
+// MongoDB Connection (SAFE FOR VERCEL)
+// --------------------
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI is missing in environment variables");
+}
+
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => {
+      return mongoose;
+    });
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
+
+// --------------------
 // Routes
+// --------------------
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
-// Remove course routes
-// app.use('/api/courses', require('./routes/courses'));
 app.use('/api/batches', require('./routes/batches'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/service-sales', require('./routes/serviceSales'));
@@ -37,22 +71,27 @@ app.use('/api/team', require('./routes/team'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/uploads', require('./routes/uploads'));
 
+// --------------------
 // Serve frontend
+// --------------------
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.log(err));
-
+// --------------------
+// Start Server AFTER DB CONNECT
+// --------------------
 const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+connectDB()
+  .then(() => {
+    console.log("MongoDB Connected");
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+  });
