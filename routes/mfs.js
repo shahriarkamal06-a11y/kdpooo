@@ -262,27 +262,86 @@ router.get('/customers/phone/:phone', auth, authorize('admin', 'staff'), async (
   }
 });
 
+// Get customer by ID
+router.get('/customers/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+  try {
+    const customer = await MFSCustomer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    // Get customer's due history
+    const dues = await MFSDue.find({ customer: customer._id })
+      .populate('mfsAccount', 'provider accountNumber')
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json({ customer, dues });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create or update customer
 router.post('/customers', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { name } = req.body;
     
-    let customer = await MFSCustomer.findOne({ phone });
-    
-    if (customer) {
-      // Update existing customer
-      Object.assign(customer, req.body);
-      await customer.save();
-    } else {
-      // Create new customer
-      customer = new MFSCustomer({
-        ...req.body,
-        createdBy: req.user.id
-      });
-      await customer.save();
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Customer name is required' });
     }
 
+    // Create new customer
+    const customer = new MFSCustomer({
+      ...req.body,
+      createdBy: req.user.id
+    });
+    await customer.save();
+
     res.json(customer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update customer
+router.put('/customers/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+  try {
+    const customer = await MFSCustomer.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    
+    res.json(customer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete customer
+router.delete('/customers/:id', auth, authorize('admin'), async (req, res) => {
+  try {
+    const customer = await MFSCustomer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    
+    // Check if customer has pending dues
+    const pendingDues = await MFSDue.countDocuments({ 
+      customer: req.params.id, 
+      status: { $in: ['pending', 'partial'] } 
+    });
+    
+    if (pendingDues > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete customer with pending dues' 
+      });
+    }
+    
+    await MFSCustomer.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Customer deleted successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -360,30 +419,24 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 // Create a due transaction (account balance decreases, hand cash does NOT increase)
 router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
-    const { mfsAccount: accountId, amount, transactionType, customerName, customerPhone, notes, dueDate } = req.body;
+    const { mfsAccount: accountId, amount, transactionType, customerId, notes, dueDate } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ message: 'Customer is required for due transactions' });
+    }
 
     const account = await MFSAccount.findById(accountId);
     if (!account) return res.status(404).json({ message: 'MFS Account not found' });
     if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
 
-    // Find or create customer
-    let customer = await MFSCustomer.findOne({ phone: customerPhone });
-    
-    if (customer) {
-      // Check if customer can take more due
-      const canTakeDue = customer.canTakeDue(amount);
-      if (!canTakeDue.allowed) {
-        return res.status(400).json({ message: canTakeDue.reason });
-      }
-    } else {
-      // Create new customer
-      customer = new MFSCustomer({
-        name: customerName,
-        phone: customerPhone,
-        creditLimit: 50000, // Default credit limit
-        createdBy: req.user.id
-      });
-      await customer.save();
+    // Get customer
+    const customer = await MFSCustomer.findById(customerId);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    // Check if customer can take more due
+    const canTakeDue = customer.canTakeDue(amount);
+    if (!canTakeDue.allowed) {
+      return res.status(400).json({ message: canTakeDue.reason });
     }
 
     // For due transactions where account balance decreases (cash_in, send_money, payment, b2b)
@@ -399,8 +452,8 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       customer: customer._id,
       transactionType,
       amount,
-      customerName,
-      customerPhone,
+      customerName: customer.name,
+      customerPhone: customer.phone || '',
       notes,
       dueDate: dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
       handledBy: req.user.id

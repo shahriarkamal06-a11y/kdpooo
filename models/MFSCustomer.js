@@ -8,9 +8,8 @@ const mfsCustomerSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true,
-    unique: true,
-    trim: true
+    trim: true,
+    required: false
   },
   email: {
     type: String,
@@ -81,7 +80,7 @@ const mfsCustomerSchema = new mongoose.Schema({
 });
 
 // Index for quick search
-mfsCustomerSchema.index({ phone: 1 });
+mfsCustomerSchema.index({ phone: 1 }, { sparse: true }); // sparse so null phones don't conflict
 mfsCustomerSchema.index({ name: 1 });
 mfsCustomerSchema.index({ status: 1 });
 

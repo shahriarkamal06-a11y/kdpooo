@@ -20,8 +20,8 @@ const mfsDueSchema = new mongoose.Schema({
     required: true,
     min: 1
   },
-  customerName: { type: String, required: true },
-  customerPhone: { type: String, required: true },
+  customerName: { type: String },
+  customerPhone: { type: String },
   paidAmount: { type: Number, default: 0 },
   status: {
     type: String,
