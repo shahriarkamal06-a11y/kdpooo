@@ -1,5 +1,6 @@
 const express = require('express');
-const htmlPdf = require('html-pdf-node');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const User = require('../models/User');
 const StudentFee = require('../models/StudentFee');
 const Attendance = require('../models/Attendance');
@@ -9,6 +10,44 @@ const { getDatasetExport, getExportFilename } = require('../utils/pdfExport');
 
 const router = express.Router();
 
+// Helper function to generate PDF from HTML using Puppeteer
+async function generatePdfFromHtml(htmlContent, options = {}) {
+  let browser = null;
+  
+  try {
+    // Launch browser with appropriate configuration for environment
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+    const pdfOptions = {
+      format: options.format || 'A4',
+      landscape: options.landscape || false,
+      printBackground: options.printBackground !== false,
+      margin: options.margin || {
+        top: '0.4in',
+        right: '0.3in',
+        bottom: '0.4in',
+        left: '0.3in'
+      }
+    };
+
+    const pdfBuffer = await page.pdf(pdfOptions);
+    
+    return pdfBuffer;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
 // @route   GET /api/pdf/admin/:dataset
 // @desc    Generate admin PDF export for supported datasets
 // @access  Private (Admin only)
@@ -17,20 +56,17 @@ router.get('/admin/:dataset', auth, authorize('admin'), async (req, res) => {
     const exportData = await getDatasetExport(req.params.dataset, req.query);
     const filename = getExportFilename(req.params.dataset);
 
-    const pdfBuffer = await htmlPdf.generatePdf(
-      { content: exportData.html },
-      {
-        format: 'A4',
-        landscape: exportData.landscape,
-        printBackground: true,
-        margin: {
-          top: '0.4in',
-          right: '0.3in',
-          bottom: '0.4in',
-          left: '0.3in'
-        }
+    const pdfBuffer = await generatePdfFromHtml(exportData.html, {
+      format: 'A4',
+      landscape: exportData.landscape,
+      printBackground: true,
+      margin: {
+        top: '0.4in',
+        right: '0.3in',
+        bottom: '0.4in',
+        left: '0.3in'
       }
-    );
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -82,16 +118,12 @@ router.get('/user/:studentId', async (req, res) => {
     // Generate HTML content for PDF
     const htmlContent = generateUserPDFHTML(user, studentFees, attendanceRecords, transactions);
 
-    // PDF options
-    const options = {
+    // Generate PDF
+    const pdfBuffer = await generatePdfFromHtml(htmlContent, {
       format: 'A4',
       printBackground: true,
       margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' }
-    };
-
-    // Generate PDF
-    const file = { content: htmlContent };
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+    });
 
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
