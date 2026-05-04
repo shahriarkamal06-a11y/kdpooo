@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "routes/pdf.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "server.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}

@@ -1,5 +1,62 @@
 const express = require('express');
-const htmlPdf = require('html-pdf-node');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
+
+// Returns the correct Chromium executable for the current environment.
+async function getChromiumExecutable() {
+  // In production (Vercel/Lambda) use the sparticuz pre-built binary.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production') {
+    return chromium.executablePath();
+  }
+  // Local fallback — standard Chrome locations.
+  const localPaths = [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium'
+  ];
+  const fs = require('fs');
+  for (const p of localPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Last resort: let puppeteer-core find whatever is available.
+  return undefined;
+}
+
+async function generatePdfFromHtml(htmlContent, pdfOptions = {}) {
+  const executablePath = await getChromiumExecutable();
+
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--no-zygote'
+  ];
+
+  const browser = await puppeteer.launch({
+    args: executablePath ? [...chromium.args, ...launchArgs] : launchArgs,
+    executablePath: executablePath || undefined,
+    headless: chromium.headless ?? 'new',
+    defaultViewport: chromium.defaultViewport
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const buffer = await page.pdf({
+      format: pdfOptions.format || 'A4',
+      landscape: pdfOptions.landscape || false,
+      printBackground: pdfOptions.printBackground !== false,
+      margin: pdfOptions.margin || { top: '0.4in', right: '0.3in', bottom: '0.4in', left: '0.3in' }
+    });
+    return buffer;
+  } finally {
+    await browser.close();
+  }
+}
 const User = require('../models/User');
 const StudentFee = require('../models/StudentFee');
 const Attendance = require('../models/Attendance');
@@ -17,20 +74,17 @@ router.get('/admin/:dataset', auth, authorize('admin'), async (req, res) => {
         const exportData = await getDatasetExport(req.params.dataset, req.query);
         const filename = getExportFilename(req.params.dataset);
 
-        const pdfBuffer = await htmlPdf.generatePdf(
-            { content: exportData.html },
-            {
-                format: 'A4',
-                landscape: exportData.landscape,
-                printBackground: true,
-                margin: {
-                    top: '0.4in',
-                    right: '0.3in',
-                    bottom: '0.4in',
-                    left: '0.3in'
-                }
+        const pdfBuffer = await generatePdfFromHtml(exportData.html, {
+            format: 'A4',
+            landscape: exportData.landscape,
+            printBackground: true,
+            margin: {
+                top: '0.4in',
+                right: '0.3in',
+                bottom: '0.4in',
+                left: '0.3in'
             }
-        );
+        });
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -90,8 +144,7 @@ router.get('/user/:studentId', async (req, res) => {
         };
 
         // Generate PDF
-        const file = { content: htmlContent };
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
+        const pdfBuffer = await generatePdfFromHtml(htmlContent, options);
 
         // Set response headers
         res.setHeader('Content-Type', 'application/pdf');
