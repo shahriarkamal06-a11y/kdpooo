@@ -15,6 +15,10 @@ async function generatePdfFromHtml(htmlContent, options = {}) {
   let browser = null;
   
   try {
+    // Disable GPU-related libraries (libnss3.so, etc.) that aren't available on Vercel
+    chromium.setGraphicsMode = false;
+    chromium.setHeadlessMode = true;
+
     // Launch browser with @sparticuz/chromium for serverless environments
     browser = await puppeteer.launch({
       args: chromium.args,
