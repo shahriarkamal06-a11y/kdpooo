@@ -6,6 +6,10 @@ const mfsDueSchema = new mongoose.Schema({
     ref: 'MFSAccount',
     required: true
   },
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MFSCustomer'
+  },
   transactionType: {
     type: String,
     enum: ['cash_in', 'cash_out', 'send_money', 'receive_money', 'payment', 'b2b'],
@@ -21,8 +25,11 @@ const mfsDueSchema = new mongoose.Schema({
   paidAmount: { type: Number, default: 0 },
   status: {
     type: String,
-    enum: ['pending', 'partial', 'paid'],
+    enum: ['pending', 'partial', 'paid', 'overdue'],
     default: 'pending'
+  },
+  dueDate: {
+    type: Date
   },
   notes: String,
   handledBy: {
@@ -34,12 +41,20 @@ const mfsDueSchema = new mongoose.Schema({
     amount: Number,
     paidAt: { type: Date, default: Date.now },
     notes: String,
-    collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    paymentMethod: { type: String, default: 'cash' }
   }]
 }, { timestamps: true });
 
 mfsDueSchema.virtual('dueAmount').get(function () {
   return this.amount - this.paidAmount;
+});
+
+// Check if overdue
+mfsDueSchema.virtual('isOverdue').get(function () {
+  if (this.status === 'paid') return false;
+  if (!this.dueDate) return false;
+  return new Date() > this.dueDate;
 });
 
 module.exports = mongoose.model('MFSDue', mfsDueSchema);

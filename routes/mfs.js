@@ -2,6 +2,7 @@ const express = require('express');
 const MFSAccount = require('../models/MFSAccount');
 const MFSTransaction = require('../models/MFSTransaction');
 const MFSDue = require('../models/MFSDue');
+const MFSCustomer = require('../models/MFSCustomer');
 const HandCash = require('../models/HandCash');
 const { auth, authorize } = require('../middleware/auth');
 
@@ -216,6 +217,114 @@ router.post('/transactions', auth, authorize('admin', 'staff'), async (req, res)
   }
 });
 
+// ============ MFS CUSTOMERS ============
+
+// Get all customers
+router.get('/customers', auth, authorize('admin', 'staff'), async (req, res) => {
+  try {
+    const { status, search } = req.query;
+    let query = {};
+    
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const customers = await MFSCustomer.find(query)
+      .sort({ currentDue: -1, trustScore: 1 });
+
+    res.json(customers);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get customer by phone
+router.get('/customers/phone/:phone', auth, authorize('admin', 'staff'), async (req, res) => {
+  try {
+    const customer = await MFSCustomer.findOne({ phone: req.params.phone });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    // Get customer's due history
+    const dues = await MFSDue.find({ customer: customer._id })
+      .populate('mfsAccount', 'provider accountNumber')
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json({ customer, dues });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create or update customer
+router.post('/customers', auth, authorize('admin', 'staff'), async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    let customer = await MFSCustomer.findOne({ phone });
+    
+    if (customer) {
+      // Update existing customer
+      Object.assign(customer, req.body);
+      await customer.save();
+    } else {
+      // Create new customer
+      customer = new MFSCustomer({
+        ...req.body,
+        createdBy: req.user.id
+      });
+      await customer.save();
+    }
+
+    res.json(customer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update customer credit limit
+router.put('/customers/:id/credit-limit', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { creditLimit } = req.body;
+    const customer = await MFSCustomer.findById(req.params.id);
+    
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    
+    customer.creditLimit = creditLimit;
+    await customer.save();
+    
+    res.json(customer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Block/Unblock customer
+router.put('/customers/:id/status', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    const customer = await MFSCustomer.findById(req.params.id);
+    
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    
+    customer.status = status;
+    await customer.save();
+    
+    res.json(customer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ MFS DUES ============
 
 // Get all dues
@@ -232,6 +341,7 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 
     let dues = await MFSDue.find(query)
       .populate('mfsAccount', 'provider accountType accountNumber accountName')
+      .populate('customer', 'name phone creditLimit currentDue trustScore status')
       .populate('handledBy', 'name')
       .populate('payments.collectedBy', 'name')
       .sort({ createdAt: -1 });
@@ -250,11 +360,31 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 // Create a due transaction (account balance decreases, hand cash does NOT increase)
 router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
-    const { mfsAccount: accountId, amount, transactionType, customerName, customerPhone, notes } = req.body;
+    const { mfsAccount: accountId, amount, transactionType, customerName, customerPhone, notes, dueDate } = req.body;
 
     const account = await MFSAccount.findById(accountId);
     if (!account) return res.status(404).json({ message: 'MFS Account not found' });
     if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
+
+    // Find or create customer
+    let customer = await MFSCustomer.findOne({ phone: customerPhone });
+    
+    if (customer) {
+      // Check if customer can take more due
+      const canTakeDue = customer.canTakeDue(amount);
+      if (!canTakeDue.allowed) {
+        return res.status(400).json({ message: canTakeDue.reason });
+      }
+    } else {
+      // Create new customer
+      customer = new MFSCustomer({
+        name: customerName,
+        phone: customerPhone,
+        creditLimit: 50000, // Default credit limit
+        createdBy: req.user.id
+      });
+      await customer.save();
+    }
 
     // For due transactions where account balance decreases (cash_in, send_money, payment, b2b)
     const balanceDecreasesTypes = ['cash_in', 'send_money', 'payment', 'b2b'];
@@ -263,21 +393,31 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       account.balance -= amount;
       await account.save();
     }
-    // For cash_out/receive_money on due: customer owes us cash, account balance does NOT change yet
 
     const due = new MFSDue({
       mfsAccount: accountId,
+      customer: customer._id,
       transactionType,
       amount,
       customerName,
       customerPhone,
       notes,
+      dueDate: dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
       handledBy: req.user.id
     });
 
     await due.save();
+
+    // Update customer statistics
+    customer.currentDue += amount;
+    customer.totalDueAmount += amount;
+    customer.totalTransactions += 1;
+    customer.lastTransactionDate = new Date();
+    await customer.save();
+
     await due.populate([
       { path: 'mfsAccount', select: 'provider accountType accountNumber accountName' },
+      { path: 'customer', select: 'name phone creditLimit currentDue trustScore status' },
       { path: 'handledBy', select: 'name' }
     ]);
 
@@ -292,7 +432,7 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
     const { amount, notes } = req.body;
-    const due = await MFSDue.findById(req.params.id);
+    const due = await MFSDue.findById(req.params.id).populate('customer');
     if (!due) return res.status(404).json({ message: 'Due record not found' });
     if (due.status === 'paid') return res.status(400).json({ message: 'Due is already fully paid' });
 
@@ -302,7 +442,8 @@ router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, 
     due.paidAmount += amount;
     due.payments.push({ amount, notes, collectedBy: req.user.id });
 
-    if (due.paidAmount >= due.amount) {
+    const wasFullyPaid = due.paidAmount >= due.amount;
+    if (wasFullyPaid) {
       due.status = 'paid';
     } else {
       due.status = 'partial';
@@ -318,8 +459,39 @@ router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, 
     await handCash.save();
 
     await due.save();
+
+    // Update customer statistics
+    if (due.customer) {
+      const customer = await MFSCustomer.findById(due.customer._id);
+      if (customer) {
+        customer.currentDue -= amount;
+        customer.totalPaidAmount += amount;
+        customer.lastPaymentDate = new Date();
+        
+        // Track payment timeliness
+        if (due.dueDate && new Date() <= due.dueDate) {
+          customer.onTimePayments += 1;
+        } else if (due.dueDate) {
+          customer.latePayments += 1;
+        }
+        
+        // Update trust score
+        customer.updateTrustScore();
+        
+        // Auto-adjust status based on trust score
+        if (customer.trustScore < 30) {
+          customer.status = 'warning';
+        } else if (customer.trustScore >= 70 && customer.currentDue === 0) {
+          customer.status = 'active';
+        }
+        
+        await customer.save();
+      }
+    }
+
     await due.populate([
       { path: 'mfsAccount', select: 'provider accountType accountNumber accountName' },
+      { path: 'customer', select: 'name phone creditLimit currentDue trustScore status' },
       { path: 'handledBy', select: 'name' },
       { path: 'payments.collectedBy', select: 'name' }
     ]);
