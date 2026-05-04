@@ -192,16 +192,16 @@ const renderSummaryCards = (summaryCards) => {
   return `
     <div class="summary-grid">
       ${summaryCards
-        .map(
-          (card) => `
+      .map(
+        (card) => `
             <div class="summary-card">
               <div class="summary-value">${escapeHtml(String(card.value))}</div>
               <div class="summary-label-en">${escapeHtml(card.labelEn)}</div>
               <div class="summary-label-bn">${escapeHtml(card.labelBn)}</div>
             </div>
           `
-        )
-        .join('')}
+      )
+      .join('')}
     </div>
   `;
 };
@@ -214,15 +214,15 @@ const renderFilters = (filters) => {
   return `
     <div class="filters">
       ${filters
-        .map(
-          (filter) => `
+      .map(
+        (filter) => `
             <div class="filter-pill">
               <span class="filter-title">${escapeHtml(filter.labelEn)} / ${escapeHtml(filter.labelBn)}:</span>
               <span>${escapeHtml(String(filter.value))}</span>
             </div>
           `
-        )
-        .join('')}
+      )
+      .join('')}
     </div>
   `;
 };
@@ -246,28 +246,28 @@ const renderTable = (columns, records) => {
             <span class="th-bn">ক্রম</span>
           </th>
           ${columns
-            .map(
-              (column) => `
+      .map(
+        (column) => `
                 <th>
                   <span class="th-en">${escapeHtml(column.labelEn)}</span>
                   <span class="th-bn">${escapeHtml(column.labelBn)}</span>
                 </th>
               `
-            )
-            .join('')}
+      )
+      .join('')}
         </tr>
       </thead>
       <tbody>
         ${records
-          .map(
-            (record, index) => `
+      .map(
+        (record, index) => `
               <tr>
                 <td class="index-col">${index + 1}</td>
                 ${columns.map((column) => `<td>${formatCell(column.value(record, index))}</td>`).join('')}
               </tr>
             `
-          )
-          .join('')}
+      )
+      .join('')}
       </tbody>
     </table>
   `;
@@ -1466,26 +1466,17 @@ const getDatasetExport = async (dataset, query = {}) => {
   const titleEn = data.titleEn || definition.titleEn;
   const titleBn = data.titleBn || definition.titleBn;
 
-  const summaryCards = data.summaryCards || [];
-  const filters = data.filters || [];
-  const columns = data.columns || [];
-  const records = data.records || [];
-
   return {
     titleEn,
     titleBn,
     landscape: Boolean(definition.landscape),
-    summaryCards,
-    filters,
-    columns,
-    records,
     html: renderHtml({
       titleEn,
       titleBn,
-      summaryCards,
-      filters,
-      columns,
-      records
+      summaryCards: data.summaryCards || [],
+      filters: data.filters || [],
+      columns: data.columns || [],
+      records: data.records || []
     })
   };
 };
