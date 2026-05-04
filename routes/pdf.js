@@ -48,7 +48,7 @@ async function generatePdfFromHtml(htmlContent, pdfOptions = {}) {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'load', timeout: 30000 });
+    await page.setContent(htmlContent, { waitUntil: 'networkidle2', timeout: 30000 });
     console.log('[PDF] Content loaded, generating PDF...');
 
     const buffer = await page.pdf({
@@ -183,11 +183,12 @@ function generateUserPDFHTML(user, studentFees, attendanceRecords, transactions)
     <html>
     <head>
         <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700;800&display=swap" rel="stylesheet" />
         <title>Student Profile - ${user.studentId}</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
-                font-family: 'Arial', sans-serif; 
+                font-family: 'Noto Sans Bengali', 'Arial', sans-serif; 
                 line-height: 1.4; 
                 color: #333;
                 font-size: 12px;

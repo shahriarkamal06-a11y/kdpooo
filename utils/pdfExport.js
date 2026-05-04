@@ -279,6 +279,7 @@ const renderHtml = ({ titleEn, titleBn, summaryCards, filters, columns, records 
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700;800&display=swap" rel="stylesheet" />
       <title>${escapeHtml(titleEn)}</title>
       <style>
         * { box-sizing: border-box; }
@@ -287,7 +288,7 @@ const renderHtml = ({ titleEn, titleBn, summaryCards, filters, columns, records 
           padding: 24px;
           color: #1f2937;
           background: #f3f4f6;
-          font-family: "Nirmala UI", "SolaimanLipi", "Nikosh", "Vrinda", "Arial Unicode MS", Arial, sans-serif;
+          font-family: "Noto Sans Bengali", "Nirmala UI", "SolaimanLipi", "Nikosh", Arial, sans-serif;
           font-size: 11px;
           line-height: 1.45;
         }
