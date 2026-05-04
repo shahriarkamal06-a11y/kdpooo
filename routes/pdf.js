@@ -20,38 +20,54 @@ async function getChromiumExecutable() {
   for (const p of localPaths) {
     if (fs.existsSync(p)) return p;
   }
-  // Last resort: let puppeteer-core find whatever is available.
   return undefined;
 }
 
 async function generatePdfFromHtml(htmlContent, pdfOptions = {}) {
-  const executablePath = await getChromiumExecutable();
+  let executablePath;
+  try {
+    executablePath = await getChromiumExecutable();
+    console.log('[PDF] Executable:', executablePath ? 'found' : 'undefined');
+  } catch (err) {
+    console.error('[PDF] Executable resolution error:', err.message);
+    throw err;
+  }
 
-  const launchArgs = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--single-process',
-    '--no-zygote'
-  ];
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
   const browser = await puppeteer.launch({
-    args: executablePath ? [...chromium.args, ...launchArgs] : launchArgs,
+    args: [
+      ...chromium.args,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-zygote',
+      ...(isServerless ? ['--single-process'] : [])
+    ],
     executablePath: executablePath || undefined,
-    headless: chromium.headless ?? 'new',
+    headless: chromium.headless,
     defaultViewport: chromium.defaultViewport
   });
 
+  console.log('[PDF] Browser launched');
+
   try {
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    // Use 'load' — 'networkidle0' silently hangs in serverless environments
+    await page.setContent(htmlContent, { waitUntil: 'load', timeout: 30000 });
+    console.log('[PDF] Content set, generating PDF...');
+
     const buffer = await page.pdf({
       format: pdfOptions.format || 'A4',
       landscape: pdfOptions.landscape || false,
       printBackground: pdfOptions.printBackground !== false,
-      margin: pdfOptions.margin || { top: '0.4in', right: '0.3in', bottom: '0.4in', left: '0.3in' }
+      margin: pdfOptions.margin || { top: '0.4in', right: '0.3in', bottom: '0.4in', left: '0.3in' },
+      timeout: 30000
     });
+
+    console.log('[PDF] Done, buffer size:', buffer.length);
     return buffer;
   } finally {
     await browser.close();
