@@ -1,6 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const chromium = require('chrome-aws-lambda');
 const User = require('../models/User');
 const StudentFee = require('../models/StudentFee');
 const Attendance = require('../models/Attendance');
@@ -15,12 +15,13 @@ async function generatePdfFromHtml(htmlContent, options = {}) {
   let browser = null;
   
   try {
-    // Launch browser with appropriate configuration for environment
+    // Launch browser with chrome-aws-lambda configuration
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath,
       headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
