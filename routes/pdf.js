@@ -1,14 +1,29 @@
 const express = require('express');
 const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const chromium = require('@sparticuz/chromium-min');
 
-// Returns the correct Chromium executable for the current environment.
-async function getChromiumExecutable() {
-  // In production (Vercel/Lambda) use the sparticuz pre-built binary.
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production') {
-    return chromium.executablePath();
+// Remote Chromium binary — downloaded once per cold start by chromium-min.
+const CHROMIUM_REMOTE_URL =
+  'https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar';
+
+async function getBrowser() {
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+  if (isServerless) {
+    console.log('[PDF] Serverless detected — using remote Chromium');
+    const executablePath = await chromium.executablePath(CHROMIUM_REMOTE_URL);
+    console.log('[PDF] Executable path:', executablePath);
+
+    return puppeteer.launch({
+      args: chromium.args,
+      executablePath,
+      headless: true,
+      defaultViewport: null
+    });
   }
-  // Local fallback — standard Chrome locations.
+
+  // Local development — use installed Chrome.
+  const fs = require('fs');
   const localPaths = [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
@@ -16,59 +31,35 @@ async function getChromiumExecutable() {
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium'
   ];
-  const fs = require('fs');
-  for (const p of localPaths) {
-    if (fs.existsSync(p)) return p;
-  }
-  return undefined;
+
+  const localPath = localPaths.find((p) => fs.existsSync(p));
+  console.log('[PDF] Local Chrome:', localPath || 'not found');
+
+  return puppeteer.launch({
+    executablePath: localPath,
+    headless: true,
+    defaultViewport: null
+  });
 }
 
 async function generatePdfFromHtml(htmlContent, pdfOptions = {}) {
-  let executablePath;
-  try {
-    executablePath = await getChromiumExecutable();
-    console.log('[PDF] Executable:', executablePath ? 'found' : 'undefined');
-  } catch (err) {
-    console.error('[PDF] Executable resolution error:', err.message);
-    throw err;
-  }
-
-  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-
-  const browser = await puppeteer.launch({
-    args: [
-      ...chromium.args,
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-zygote',
-      ...(isServerless ? ['--single-process'] : [])
-    ],
-    executablePath: executablePath || undefined,
-    headless: chromium.headless,
-    defaultViewport: chromium.defaultViewport
-  });
-
+  const browser = await getBrowser();
   console.log('[PDF] Browser launched');
 
   try {
     const page = await browser.newPage();
-    // Use 'load' — 'networkidle0' silently hangs in serverless environments
     await page.setContent(htmlContent, { waitUntil: 'load', timeout: 30000 });
-    console.log('[PDF] Content set, generating PDF...');
+    console.log('[PDF] Content loaded, generating PDF...');
 
     const buffer = await page.pdf({
       format: pdfOptions.format || 'A4',
       landscape: pdfOptions.landscape || false,
       printBackground: pdfOptions.printBackground !== false,
-      margin: pdfOptions.margin || { top: '0.4in', right: '0.3in', bottom: '0.4in', left: '0.3in' },
-      timeout: 30000
+      margin: pdfOptions.margin || { top: '0.4in', right: '0.3in', bottom: '0.4in', left: '0.3in' }
     });
 
-    console.log('[PDF] Done, buffer size:', buffer.length);
-    return buffer;
+    console.log('[PDF] Done, buffer size:', buffer.length, 'bytes');
+    return Buffer.from(buffer);
   } finally {
     await browser.close();
   }
