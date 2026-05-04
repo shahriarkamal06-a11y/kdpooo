@@ -1466,17 +1466,26 @@ const getDatasetExport = async (dataset, query = {}) => {
   const titleEn = data.titleEn || definition.titleEn;
   const titleBn = data.titleBn || definition.titleBn;
 
+  const summaryCards = data.summaryCards || [];
+  const filters = data.filters || [];
+  const columns = data.columns || [];
+  const records = data.records || [];
+
   return {
     titleEn,
     titleBn,
     landscape: Boolean(definition.landscape),
+    summaryCards,
+    filters,
+    columns,
+    records,
     html: renderHtml({
       titleEn,
       titleBn,
-      summaryCards: data.summaryCards || [],
-      filters: data.filters || [],
-      columns: data.columns || [],
-      records: data.records || []
+      summaryCards,
+      filters,
+      columns,
+      records
     })
   };
 };
