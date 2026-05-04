@@ -391,7 +391,10 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
     const { status, provider, startDate, endDate } = req.query;
     let query = {};
-    if (status) query.status = status;
+    if (status) {
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      query.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);

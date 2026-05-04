@@ -115,7 +115,7 @@ async function seed() {
     await MFSDue.create({
       mfsAccount: account._id,
       customer: customer._id,
-      transactionType: 'cash_out',
+      transactionType: 'cash_in',
       amount: entry.amount,
       customerName: entry.name,
       customerPhone: '',
