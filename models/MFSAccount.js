@@ -13,8 +13,7 @@ const mfsAccountSchema = new mongoose.Schema({
   },
   accountNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   accountName: {
     type: String,
@@ -31,7 +30,7 @@ const mfsAccountSchema = new mongoose.Schema({
   commission: {
     cashIn: {
       type: Number,
-      default: 0 // Commission per transaction
+      default: 0
     },
     cashOut: {
       type: Number,
@@ -52,5 +51,8 @@ const mfsAccountSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Create compound index to allow same phone number for different providers
+mfsAccountSchema.index({ provider: 1, accountNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('MFSAccount', mfsAccountSchema);

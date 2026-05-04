@@ -6,6 +6,7 @@ const Salary = require('../models/Salary');
 const StudentFee = require('../models/StudentFee');
 const Registration = require('../models/Registration');
 const MFSTransaction = require('../models/MFSTransaction');
+const MFSDue = require('../models/MFSDue');
 const Batch = require('../models/Batch');
 const Service = require('../models/Service');
 const Notice = require('../models/Notice');
@@ -1016,6 +1017,61 @@ const datasetDefinitions = {
         ],
         filters: buildFilterList([
           { labelEn: 'Status', labelBn: 'অবস্থা', value: humanize(query.status) },
+          { labelEn: 'From Date', labelBn: 'শুরুর তারিখ', value: query.startDate },
+          { labelEn: 'To Date', labelBn: 'শেষ তারিখ', value: query.endDate }
+        ])
+      };
+    }
+  },
+  'mfs-dues': {
+    titleEn: 'MFS Due Management Report',
+    titleBn: 'এমএফএস বাকি ব্যবস্থাপনা রিপোর্ট',
+    landscape: true,
+    fetcher: async (query) => {
+      const mongoQuery = {};
+
+      if (query.status) {
+        mongoQuery.status = query.status;
+      }
+
+      applyDateRange(mongoQuery, 'createdAt', query.startDate, query.endDate);
+
+      let records = await MFSDue.find(mongoQuery)
+        .populate('mfsAccount', 'provider accountType accountNumber accountName')
+        .populate('handledBy', 'name')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (query.provider) {
+        records = records.filter((row) => row.mfsAccount?.provider === query.provider);
+      }
+
+      return {
+        records,
+        columns: [
+          { labelEn: 'Date', labelBn: 'তারিখ', value: (row) => formatDateTime(row.createdAt) },
+          { labelEn: 'Customer Name', labelBn: 'গ্রাহকের নাম', value: (row) => row.customerName || 'N/A' },
+          { labelEn: 'Customer Phone', labelBn: 'গ্রাহকের ফোন', value: (row) => row.customerPhone || 'N/A' },
+          { labelEn: 'Account', labelBn: 'অ্যাকাউন্ট', value: (row) => `${humanize(row.mfsAccount?.provider || '')} - ${row.mfsAccount?.accountNumber || 'N/A'}` },
+          { labelEn: 'Type', labelBn: 'ধরন', value: (row) => humanize(row.transactionType) },
+          { labelEn: 'Total Amount', labelBn: 'মোট পরিমাণ', value: (row) => formatCurrency(row.amount) },
+          { labelEn: 'Paid', labelBn: 'পরিশোধ', value: (row) => formatCurrency(row.paidAmount) },
+          { labelEn: 'Due', labelBn: 'বাকি', value: (row) => formatCurrency(row.amount - row.paidAmount) },
+          { labelEn: 'Status', labelBn: 'অবস্থা', value: (row) => humanize(row.status) },
+          { labelEn: 'Handled By', labelBn: 'পরিচালক', value: (row) => row.handledBy?.name || 'N/A' }
+        ],
+        summaryCards: [
+          { labelEn: 'Total Due Records', labelBn: 'মোট বাকি রেকর্ড', value: records.length },
+          { labelEn: 'Total Amount', labelBn: 'মোট পরিমাণ', value: formatCurrency(sumBy(records, (row) => row.amount)) },
+          { labelEn: 'Total Collected', labelBn: 'মোট আদায়', value: formatCurrency(sumBy(records, (row) => row.paidAmount)) },
+          { labelEn: 'Outstanding Due', labelBn: 'বকেয়া বাকি', value: formatCurrency(sumBy(records, (row) => row.amount - row.paidAmount)) },
+          { labelEn: 'Pending', labelBn: 'অপেক্ষমাণ', value: records.filter((row) => row.status === 'pending').length },
+          { labelEn: 'Partial', labelBn: 'আংশিক', value: records.filter((row) => row.status === 'partial').length },
+          { labelEn: 'Paid', labelBn: 'পরিশোধিত', value: records.filter((row) => row.status === 'paid').length }
+        ],
+        filters: buildFilterList([
+          { labelEn: 'Status', labelBn: 'অবস্থা', value: humanize(query.status) },
+          { labelEn: 'Provider', labelBn: 'প্রোভাইডার', value: humanize(query.provider) },
           { labelEn: 'From Date', labelBn: 'শুরুর তারিখ', value: query.startDate },
           { labelEn: 'To Date', labelBn: 'শেষ তারিখ', value: query.endDate }
         ])
