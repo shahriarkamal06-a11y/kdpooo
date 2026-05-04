@@ -3,6 +3,12 @@ const Notice = require('./models/Notice');
 const User = require('./models/User');
 require('dotenv').config();
 
+
+
+
+
+
+
 async function createTestNotice() {
   try {
     // Connect to MongoDB
