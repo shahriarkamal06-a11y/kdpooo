@@ -1,4 +1,33 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/dist/assets/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/(.*\\.(js|css|jpg|jpeg|png|gif|svg|ico|json|woff|woff2|ttf|eot))$",
+      "dest": "/dist/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
+    }
+  ],
   "functions": {
     "routes/pdf.js": {
       "memory": 1024,
@@ -8,36 +37,5 @@
       "memory": 1024,
       "maxDuration": 60
     }
-  },
-  "routes": [
-    {
-      "src": "/assets/(.*)",
-      "headers": {
-        "Content-Type": "application/javascript; charset=utf-8"
-      },
-      "continue": true
-    },
-    {
-      "src": "/(.*\\.css)$",
-      "headers": {
-        "Content-Type": "text/css; charset=utf-8"
-      },
-      "continue": true
-    },
-    {
-      "src": "/(.*\\.js)$",
-      "headers": {
-        "Content-Type": "application/javascript; charset=utf-8"
-      },
-      "continue": true
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ]
+  }
 }

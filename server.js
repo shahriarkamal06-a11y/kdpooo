@@ -72,28 +72,35 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/uploads', require('./routes/uploads'));
 
 // --------------------
-// Serve frontend
+// Serve frontend static files
 // --------------------
-// Serve static files with proper MIME types
-app.use(express.static(path.join(__dirname, 'dist'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (path.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
+const distPath = path.join(__dirname, 'dist');
+
+// Serve static assets with proper MIME types
+app.use('/assets', express.static(path.join(distPath, 'assets'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
     }
   }
 }));
 
-// Handle React Router - send all non-API requests to index.html
+// Serve other static files
+app.use(express.static(distPath));
+
+// Handle React Router - send all non-API, non-asset requests to index.html
 app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ message: 'API route not found' });
+  // Don't serve index.html for API routes or assets
+  if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+    return res.status(404).json({ message: 'Not found' });
   }
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // --------------------
