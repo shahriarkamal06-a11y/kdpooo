@@ -8,5 +8,36 @@
       "memory": 1024,
       "maxDuration": 60
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "headers": {
+        "Content-Type": "application/javascript; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(.*\\.css)$",
+      "headers": {
+        "Content-Type": "text/css; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(.*\\.js)$",
+      "headers": {
+        "Content-Type": "application/javascript; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
+    }
+  ]
 }

@@ -74,8 +74,25 @@ app.use('/api/uploads', require('./routes/uploads'));
 // --------------------
 // Serve frontend
 // --------------------
-app.use(express.static(path.join(__dirname, 'dist')));
+// Serve static files with proper MIME types
+app.use(express.static(path.join(__dirname, 'dist'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
+
+// Handle React Router - send all non-API requests to index.html
 app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ message: 'API route not found' });
+  }
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
