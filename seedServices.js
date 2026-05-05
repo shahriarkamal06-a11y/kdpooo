@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Service = require('./models/Service');
+require('dotenv').config();
 
 const services = [
   // Photocopy Services
@@ -60,7 +61,7 @@ const services = [
 
 async function seedServices() {
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/kdpo');
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
     
     await Service.deleteMany({});

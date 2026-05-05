@@ -93,7 +93,7 @@ async function seed() {
     if (!customer) {
       customer = await MFSCustomer.create({
         name: entry.name,
-        creditLimit: entry.amount,
+        creditLimit: 1000000, // Set a high credit limit for seed data
         currentDue: entry.amount,
         totalDueAmount: entry.amount,
         totalTransactions: 1,

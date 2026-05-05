@@ -62,11 +62,7 @@ router.post('/accounts', auth, authorize('admin'), async (req, res) => {
       accountNumber: req.body.accountNumber
     });
     
-    if (existingAccount) {
-      return res.status(400).json({ 
-        message: `An account with this number already exists for ${req.body.provider}` 
-      });
-    }
+    
 
     const account = new MFSAccount(req.body);
     await account.save();
@@ -91,11 +87,7 @@ router.put('/accounts/:id', auth, authorize('admin'), async (req, res) => {
       accountNumber: req.body.accountNumber
     });
     
-    if (existingAccount) {
-      return res.status(400).json({ 
-        message: `Another account with this number already exists for ${req.body.provider}` 
-      });
-    }
+    
 
     const account = await MFSAccount.findByIdAndUpdate(
       req.params.id,
