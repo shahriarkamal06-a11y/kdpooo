@@ -108,9 +108,25 @@ app.get('*', (req, res) => {
 // --------------------
 const PORT = process.env.PORT || 5000;
 
+async function dropLegacyIndexes() {
+  try {
+    const col = mongoose.connection.collection('mfsaccounts');
+    const indexes = await col.indexes();
+    for (const idx of indexes) {
+      if (idx.name === 'accountNumber_1' || idx.name === 'provider_1_accountNumber_1') {
+        await col.dropIndex(idx.name);
+        console.log(`Dropped legacy index: ${idx.name}`);
+      }
+    }
+  } catch (e) {
+    console.warn('Legacy index drop skipped:', e.message);
+  }
+}
+
 connectDB()
-  .then(() => {
+  .then(async () => {
     console.log("MongoDB Connected");
+    await dropLegacyIndexes();
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
