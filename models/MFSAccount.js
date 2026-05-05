@@ -52,7 +52,4 @@ const mfsAccountSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Create compound index to allow same phone number for different providers
-mfsAccountSchema.index({ provider: 1, accountNumber: 1 }, { unique: true });
-
 module.exports = mongoose.model('MFSAccount', mfsAccountSchema);

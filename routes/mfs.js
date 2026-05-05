@@ -92,7 +92,7 @@ router.put('/accounts/:id', auth, authorize('admin'), async (req, res) => {
     const account = await MFSAccount.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true }
     );
     if (!account) return res.status(404).json({ message: 'Account not found' });
     res.json(account);
