@@ -400,6 +400,17 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       .populate('payments.collectedBy', 'name')
       .sort({ createdAt: -1 });
 
+    // Debug: Log the first few dues to check data
+    if (dues.length > 0) {
+      console.log('Sample due record from DB:', {
+        id: dues[0]._id,
+        amount: dues[0].amount,
+        paidAmount: dues[0].paidAmount,
+        customerName: dues[0].customerName,
+        customerCurrentDue: dues[0].customer?.currentDue
+      });
+    }
+
     if (provider) {
       dues = dues.filter(d => d.mfsAccount?.provider === provider);
     }
