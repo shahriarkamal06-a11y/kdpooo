@@ -42,8 +42,9 @@ const mfsDueSchema = new mongoose.Schema({
     paidAt: { type: Date, default: Date.now },
     notes: String,
     collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    paymentMethod: { type: String, default: 'cash' }
-  }]
+    paymentMethod: { type: String, enum: ['handcash', 'mfs_account'], default: 'handcash' }
+  }],
+  paymentMethod: { type: String, enum: ['handcash', 'mfs_account'], default: 'mfs_account' }
 }, { timestamps: true });
 
 mfsDueSchema.virtual('dueAmount').get(function () {

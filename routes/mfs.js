@@ -414,15 +414,11 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 // Create a due transaction (account balance decreases, hand cash does NOT increase)
 router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
-    const { mfsAccount: accountId, amount, transactionType, customerId, notes, dueDate } = req.body;
+    const { mfsAccount: accountId, amount, transactionType, customerId, notes, dueDate, paymentMethod } = req.body;
 
     if (!customerId) {
       return res.status(400).json({ message: 'Customer is required for due transactions' });
     }
-
-    const account = await MFSAccount.findById(accountId);
-    if (!account) return res.status(404).json({ message: 'MFS Account not found' });
-    if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
 
     // Get customer
     const customer = await MFSCustomer.findById(customerId);
@@ -434,16 +430,42 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       return res.status(400).json({ message: canTakeDue.reason });
     }
 
-    // For due transactions where account balance decreases (cash_in, send_money, payment, b2b)
-    const balanceDecreasesTypes = ['cash_in', 'send_money', 'payment', 'b2b'];
-    if (balanceDecreasesTypes.includes(transactionType)) {
-      if (account.balance < amount) return res.status(400).json({ message: 'Insufficient account balance' });
-      account.balance -= amount;
-      await account.save();
+    let account = null;
+    if (paymentMethod === 'mfs_account') {
+      if (!accountId) {
+        return res.status(400).json({ message: 'MFS Account is required when payment method is MFS account' });
+      }
+      account = await MFSAccount.findById(accountId);
+      if (!account) return res.status(404).json({ message: 'MFS Account not found' });
+      if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
+
+      // For due transactions where account balance decreases (cash_in, send_money, payment, b2b)
+      const balanceDecreasesTypes = ['cash_in', 'send_money', 'payment', 'b2b'];
+      if (balanceDecreasesTypes.includes(transactionType)) {
+        if (account.balance < amount) return res.status(400).json({ message: 'Insufficient account balance' });
+        account.balance -= amount;
+        await account.save();
+      }
+    } else if (paymentMethod === 'handcash') {
+      // Check hand cash availability
+      let handCash = await HandCash.findOne();
+      if (!handCash) {
+        handCash = new HandCash({ amount: 0 });
+        await handCash.save();
+      }
+      
+      if (handCash.amount < amount) {
+        return res.status(400).json({ message: 'Insufficient hand cash' });
+      }
+      
+      // Decrease hand cash
+      handCash.amount -= amount;
+      handCash.lastUpdatedBy = req.user.id;
+      await handCash.save();
     }
 
     const due = new MFSDue({
-      mfsAccount: accountId,
+      mfsAccount: accountId || null,
       customer: customer._id,
       transactionType,
       amount,
@@ -451,7 +473,8 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       customerPhone: customer.phone || '',
       notes,
       dueDate: dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
-      handledBy: req.user.id
+      handledBy: req.user.id,
+      paymentMethod: paymentMethod || 'mfs_account'
     });
 
     await due.save();
@@ -479,7 +502,7 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 // Collect payment for a due
 router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, res) => {
   try {
-    const { amount, notes } = req.body;
+    const { amount, notes, paymentMethod, mfsAccount: accountId } = req.body;
     const due = await MFSDue.findById(req.params.id).populate('customer');
     if (!due) return res.status(404).json({ message: 'Due record not found' });
     if (due.status === 'paid') return res.status(400).json({ message: 'Due is already fully paid' });
@@ -488,7 +511,12 @@ router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, 
     if (amount > remaining) return res.status(400).json({ message: `Amount exceeds remaining due of ${remaining}` });
 
     due.paidAmount += amount;
-    due.payments.push({ amount, notes, collectedBy: req.user.id });
+    due.payments.push({ 
+      amount, 
+      notes, 
+      collectedBy: req.user.id,
+      paymentMethod: paymentMethod || 'handcash'
+    });
 
     const wasFullyPaid = due.paidAmount >= due.amount;
     if (wasFullyPaid) {
@@ -497,14 +525,27 @@ router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, 
       due.status = 'partial';
     }
 
-    // When customer pays due, hand cash increases
-    let handCash = await HandCash.findOne();
-    if (!handCash) {
-      handCash = new HandCash({ amount: 0 });
+    if (paymentMethod === 'mfs_account') {
+      // When customer pays due to MFS account, account balance increases
+      if (!accountId) {
+        return res.status(400).json({ message: 'MFS Account is required when payment method is MFS account' });
+      }
+      const account = await MFSAccount.findById(accountId);
+      if (!account) return res.status(404).json({ message: 'MFS Account not found' });
+      if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
+      
+      account.balance += amount;
+      await account.save();
+    } else {
+      // When customer pays due, hand cash increases (default behavior)
+      let handCash = await HandCash.findOne();
+      if (!handCash) {
+        handCash = new HandCash({ amount: 0 });
+      }
+      handCash.amount += amount;
+      handCash.lastUpdatedBy = req.user.id;
+      await handCash.save();
     }
-    handCash.amount += amount;
-    handCash.lastUpdatedBy = req.user.id;
-    await handCash.save();
 
     await due.save();
 
