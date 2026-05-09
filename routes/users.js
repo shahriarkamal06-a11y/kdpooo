@@ -1,6 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
-const { auth, authorize, restrictSensitiveActions, teacherViewOnly, requirePermission } = require('../middleware/auth');
+const { auth, authorize, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -60,7 +60,7 @@ router.get('/', auth, requirePermission('users.read'), async (req, res) => {
 // @route   POST /api/users
 // @desc    Create new user
 // @access  Private (Admin, Staff only)
-router.post('/', auth, requirePermission('users.create'), authorize('admin', 'staff'), teacherViewOnly, async (req, res) => {
+router.post('/', auth, requirePermission('users.create'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const { name, nameEnglish, nameBangla, fatherName, motherName, email, phone, mobile, guardianPhone, guardianMobile, photoUrl, photoPublicId, password, role, address, permanentAddress, presentAddress, dateOfBirth, gender, nidOrBirth, education, qualification, experience, specialization, salary, joiningDate, businessName, nid, batch, courses } = req.body;
 
@@ -186,7 +186,7 @@ router.get('/:id', auth, async (req, res) => {
 // @route   PUT /api/users/:id
 // @desc    Update user
 // @access  Private (Admin, Staff, or own profile)
-router.put('/:id', auth, requirePermission('users.update'), teacherViewOnly, async (req, res) => {
+router.put('/:id', auth, requirePermission('users.update'), async (req, res) => {
   try {
     // Check if user can update this profile
     if (req.user.id !== req.params.id && !['admin', 'staff'].includes(req.user.role)) {
@@ -252,7 +252,7 @@ router.put('/:id', auth, requirePermission('users.update'), teacherViewOnly, asy
 // @route   DELETE /api/users/:id
 // @desc    Delete user
 // @access  Private (Admin only)
-router.delete('/:id', auth, requirePermission('users.delete'), authorize('admin'), restrictSensitiveActions, async (req, res) => {
+router.delete('/:id', auth, requirePermission('users.delete'), authorize('admin'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
