@@ -1,13 +1,13 @@
 const express = require('express');
 const Service = require('../models/Service');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, authorize, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   GET /api/services
 // @desc    Get all services
 // @access  Private
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requirePermission('services.read'), async (req, res) => {
   try {
     const { category, isActive, search } = req.query;
     
@@ -32,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/services
 // @desc    Create service
 // @access  Private (Admin, Staff)
-router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('services.create'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const service = new Service(req.body);
     await service.save();
@@ -46,7 +46,7 @@ router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   PUT /api/services/:id
 // @desc    Update service
 // @access  Private (Admin, Staff)
-router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', auth, requirePermission('services.update'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const service = await Service.findByIdAndUpdate(
       req.params.id,
@@ -68,7 +68,7 @@ router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   DELETE /api/services/:id
 // @desc    Delete service
 // @access  Private (Admin only)
-router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/:id', auth, requirePermission('services.delete'), authorize('admin'), async (req, res) => {
   try {
     const service = await Service.findByIdAndDelete(req.params.id);
 

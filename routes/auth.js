@@ -172,8 +172,127 @@ router.get('/me', auth, async (req, res) => {
     const user = await User.findById(req.user.id)
       .select('-password')
       .populate('batch', 'name')
-      .populate('courses', 'name');
+      .populate('courses', 'name')
+      .populate('roleId')
+      .populate('customPermissions')
+      .populate('deniedPermissions');
     res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/auth/update-profile
+// @desc    Update user profile (email, password, basic info)
+// @access  Private
+router.put('/update-profile', [
+  auth,
+  body('email').optional().isEmail().withMessage('Please include a valid email'),
+  body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('currentPassword').if(body('password').exists()).notEmpty().withMessage('Current password is required to change password')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, password, currentPassword, name, nameEnglish, nameBangla, phone, mobile, address, permanentAddress, presentAddress } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // If updating password, verify current password
+    if (password) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required' });
+      }
+      
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+      
+      user.password = password;
+    }
+
+    // If updating email, check if it's already taken
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+      user.email = email;
+    }
+
+    // Update other fields if provided
+    if (name) user.name = name;
+    if (nameEnglish) user.nameEnglish = nameEnglish;
+    if (nameBangla) user.nameBangla = nameBangla;
+    if (phone) user.phone = phone;
+    if (mobile) user.mobile = mobile;
+    if (address) user.address = address;
+    if (permanentAddress) user.permanentAddress = permanentAddress;
+    if (presentAddress) user.presentAddress = presentAddress;
+
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(userId)
+      .select('-password')
+      .populate('batch', 'name')
+      .populate('courses', 'name')
+      .populate('roleId')
+      .populate('customPermissions')
+      .populate('deniedPermissions');
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/auth/change-password
+// @desc    Change user password
+// @access  Private
+router.put('/change-password', [
+  auth,
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

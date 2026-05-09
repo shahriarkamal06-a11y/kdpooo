@@ -1,14 +1,14 @@
 const express = require('express');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, authorize, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   POST /api/attendance/checkin
 // @desc    Check in employee
 // @access  Private
-router.post('/checkin', auth, async (req, res) => {
+router.post('/checkin', auth, requirePermission('attendance.create'), async (req, res) => {
   try {
     const { employeeId } = req.body;
     const today = new Date();
@@ -44,7 +44,7 @@ router.post('/checkin', auth, async (req, res) => {
 // @route   PUT /api/attendance/checkout
 // @desc    Check out employee
 // @access  Private
-router.put('/checkout', auth, async (req, res) => {
+router.put('/checkout', auth, requirePermission('attendance.update'), async (req, res) => {
   try {
     const { employeeId } = req.body;
     const today = new Date();
@@ -166,7 +166,7 @@ router.put('/break-in', auth, async (req, res) => {
 // @route   GET /api/attendance
 // @desc    Get attendance records
 // @access  Private
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requirePermission('attendance.read'), async (req, res) => {
   try {
     const { employeeId, startDate, endDate, page = 1, limit = 20 } = req.query;
 
@@ -204,7 +204,7 @@ router.get('/', auth, async (req, res) => {
 // @route   GET /api/attendance/today
 // @desc    Get today's attendance status
 // @access  Private
-router.get('/today', auth, async (req, res) => {
+router.get('/today', auth, requirePermission('attendance.read'), async (req, res) => {
   try {
     const { employeeId } = req.query;
     const today = new Date();
@@ -243,7 +243,7 @@ router.get('/today', auth, async (req, res) => {
 // @route   GET /api/attendance/report
 // @desc    Get attendance report/summary for an employee
 // @access  Private
-router.get('/report', auth, async (req, res) => {
+router.get('/report', auth, requirePermission('attendance.read'), async (req, res) => {
   try {
     const { employeeId, month, year } = req.query;
 
@@ -353,7 +353,7 @@ router.get('/report', auth, async (req, res) => {
 // @route   PUT /api/attendance/recalculate
 // @desc    Recalculate all attendance working hours
 // @access  Private (Admin only)
-router.put('/recalculate', auth, authorize(['admin']), async (req, res) => {
+router.put('/recalculate', auth, requirePermission('attendance.manage'), async (req, res) => {
   try {
     const attendanceRecords = await Attendance.find({});
     let updated = 0;

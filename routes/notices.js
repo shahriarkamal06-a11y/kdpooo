@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Notice = require('../models/Notice');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, authorize, requirePermission } = require('../middleware/auth');
 
 // Get notices (students see their notices, staff see all)
 router.get('/', auth, async (req, res) => {
@@ -48,7 +48,7 @@ router.get('/public', async (req, res) => {
 });
 
 // Create notice (admin, staff, teacher only)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requirePermission('notices.create'), async (req, res) => {
   try {
     // Check role manually
     if (!['admin', 'staff', 'teacher'].includes(req.user.role)) {
@@ -82,7 +82,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update notice
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, requirePermission('notices.update'), async (req, res) => {
   try {
     if (!['admin', 'staff', 'teacher'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
@@ -143,7 +143,7 @@ router.post('/:id/read', auth, async (req, res) => {
 });
 
 // Delete notice
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, requirePermission('notices.delete'), async (req, res) => {
   try {
     await Notice.findByIdAndUpdate(req.params.id, { isActive: false });
     res.json({ success: true, message: 'Notice deleted successfully' });

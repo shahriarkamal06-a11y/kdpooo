@@ -1,13 +1,13 @@
 const express = require('express');
 const User = require('../models/User');
-const { auth, authorize, restrictSensitiveActions, teacherViewOnly } = require('../middleware/auth');
+const { auth, authorize, restrictSensitiveActions, teacherViewOnly, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   GET /api/users
 // @desc    Get all users with filtering
 // @access  Private (Admin, Staff, Teacher - view only students)
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requirePermission('users.read'), async (req, res) => {
   try {
     const { role, search, page = 1, limit = 10 } = req.query;
     
@@ -60,7 +60,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/users
 // @desc    Create new user
 // @access  Private (Admin, Staff only)
-router.post('/', auth, authorize('admin', 'staff'), teacherViewOnly, async (req, res) => {
+router.post('/', auth, requirePermission('users.create'), authorize('admin', 'staff'), teacherViewOnly, async (req, res) => {
   try {
     const { name, nameEnglish, nameBangla, fatherName, motherName, email, phone, mobile, guardianPhone, guardianMobile, photoUrl, photoPublicId, password, role, address, permanentAddress, presentAddress, dateOfBirth, gender, nidOrBirth, education, qualification, experience, specialization, salary, joiningDate, businessName, nid, batch, courses } = req.body;
 
@@ -186,7 +186,7 @@ router.get('/:id', auth, async (req, res) => {
 // @route   PUT /api/users/:id
 // @desc    Update user
 // @access  Private (Admin, Staff, or own profile)
-router.put('/:id', auth, teacherViewOnly, async (req, res) => {
+router.put('/:id', auth, requirePermission('users.update'), teacherViewOnly, async (req, res) => {
   try {
     // Check if user can update this profile
     if (req.user.id !== req.params.id && !['admin', 'staff'].includes(req.user.role)) {
@@ -252,7 +252,7 @@ router.put('/:id', auth, teacherViewOnly, async (req, res) => {
 // @route   DELETE /api/users/:id
 // @desc    Delete user
 // @access  Private (Admin only)
-router.delete('/:id', auth, authorize('admin'), restrictSensitiveActions, async (req, res) => {
+router.delete('/:id', auth, requirePermission('users.delete'), authorize('admin'), restrictSensitiveActions, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 

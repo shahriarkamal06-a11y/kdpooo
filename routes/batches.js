@@ -1,7 +1,7 @@
 const express = require('express');
 const Batch = require('../models/Batch');
 const User = require('../models/User');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, authorize, requirePermission } = require('../middleware/auth');
 const { convertBengaliToEnglish, convertEnglishToBengali } = require('../utils/dayTranslations');
 
 const router = express.Router();
@@ -9,7 +9,7 @@ const router = express.Router();
 // @route   GET /api/batches
 // @desc    Get all batches
 // @access  Private
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requirePermission('batches.read'), async (req, res) => {
   try {
     const { course, teacher, isActive, page = 1, limit = 10 } = req.query;
     
@@ -45,7 +45,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/batches
 // @desc    Create batch
 // @access  Private (Admin, Staff)
-router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('batches.create'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const batchData = { ...req.body };
     
@@ -79,7 +79,7 @@ router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   PUT /api/batches/:id
 // @desc    Update batch
 // @access  Private (Admin, Staff)
-router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', auth, requirePermission('batches.update'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const updateData = { ...req.body };
     
@@ -118,7 +118,7 @@ router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   DELETE /api/batches/:id
 // @desc    Delete batch
 // @access  Private (Admin only)
-router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/:id', auth, requirePermission('batches.delete'), authorize('admin'), async (req, res) => {
   try {
     const batch = await Batch.findByIdAndDelete(req.params.id);
 
@@ -142,7 +142,7 @@ router.delete('/:id', auth, authorize('admin'), async (req, res) => {
 // @route   PUT /api/batches/:id/students
 // @desc    Add student to batch
 // @access  Private (Admin, Staff)
-router.put('/:id/students', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id/students', auth, requirePermission('batches.update'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const { studentId } = req.body;
     
@@ -207,7 +207,7 @@ router.put('/:id/students', auth, authorize('admin', 'staff'), async (req, res) 
 // @route   DELETE /api/batches/:id/students/:studentId
 // @desc    Remove student from batch
 // @access  Private (Admin, Staff)
-router.delete('/:id/students/:studentId', auth, authorize('admin', 'staff'), async (req, res) => {
+router.delete('/:id/students/:studentId', auth, requirePermission('batches.update'), authorize('admin', 'staff'), async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) {

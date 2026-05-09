@@ -63,6 +63,19 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'teacher', 'staff', 'student', 'customer'],
     default: 'student'
   },
+  // New permission system
+  roleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
+  },
+  customPermissions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Permission'
+  }],
+  deniedPermissions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Permission'
+  }],
   address: {
     type: String
   },
