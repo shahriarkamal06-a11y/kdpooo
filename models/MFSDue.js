@@ -4,7 +4,9 @@ const mfsDueSchema = new mongoose.Schema({
   mfsAccount: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MFSAccount',
-    required: true
+    required: function() {
+      return this.paymentMethod === 'mfs_account';
+    }
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
@@ -12,7 +14,7 @@ const mfsDueSchema = new mongoose.Schema({
   },
   transactionType: {
     type: String,
-    enum: ['cash_in', 'cash_out', 'send_money', 'receive_money', 'payment', 'b2b'],
+    enum: ['cash_in', 'cash_out', 'send_money', 'receive_money', 'payment', 'b2b_give_cash', 'b2b_receive_cash', 'mobile_recharge', 'load'],
     required: true
   },
   amount: {

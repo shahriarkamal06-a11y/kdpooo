@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const mfsTransactionSchema = new mongoose.Schema({
   transactionType: {
     type: String,
-    enum: ['cash_in', 'cash_out', 'send_money', 'receive_money', 'payment', 'b2b'],
+    enum: ['cash_in', 'cash_out', 'send_money', 'receive_money', 'payment', 'b2b_give_cash', 'b2b_receive_cash', 'mobile_recharge', 'load'],
     required: true
   },
   mfsAccount: {

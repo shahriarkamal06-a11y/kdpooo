@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const mfsAccountSchema = new mongoose.Schema({
   provider: {
     type: String,
-    enum: ['bkash', 'nagad', 'rocket', 'upay', 'cellfin', 'mcash', 'handcash'],
+    enum: ['bkash', 'nagad', 'rocket', 'upay', 'cellfin', 'mcash', 'handcash', 'grameenphone', 'banglalink', 'robi', 'airtel', 'teletalk'],
     required: true
   },
   accountType: {
     type: String,
-    enum: ['personal', 'agent', 'merchant'],
+    enum: ['personal', 'agent', 'merchant', 'flexiload'],
     required: true
   },
   accountNumber: {

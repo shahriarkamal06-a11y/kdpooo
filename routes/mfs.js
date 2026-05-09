@@ -179,11 +179,11 @@ router.post('/transactions', auth, authorize('admin', 'staff'), async (req, res)
     if (transactionType === 'cash_out') {
       account.balance += amount;
       handCash.amount -= amount;
-    } else if (['cash_in', 'b2b', 'send_money', 'payment'].includes(transactionType)) {
+    } else if (['cash_in', 'b2b_receive_cash', 'send_money', 'payment', 'mobile_recharge'].includes(transactionType)) {
       if (account.balance < amount) return res.status(400).json({ message: 'Insufficient account balance' });
       account.balance -= amount;
       handCash.amount += amount;
-    } else if (transactionType === 'receive_money') {
+    } else if (['receive_money', 'b2b_give_cash', 'load'].includes(transactionType)) {
       account.balance += amount;
       handCash.amount -= amount;
     }
@@ -450,8 +450,8 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
       if (!account) return res.status(404).json({ message: 'MFS Account not found' });
       if (!account.isActive) return res.status(400).json({ message: 'Account is inactive' });
 
-      // For due transactions where account balance decreases (cash_in, send_money, payment, b2b)
-      const balanceDecreasesTypes = ['cash_in', 'send_money', 'payment', 'b2b'];
+      // For due transactions where account balance decreases (cash_in, send_money, payment, b2b_receive_cash, mobile_recharge)
+      const balanceDecreasesTypes = ['cash_in', 'send_money', 'payment', 'b2b_receive_cash', 'mobile_recharge'];
       if (balanceDecreasesTypes.includes(transactionType)) {
         if (account.balance < amount) return res.status(400).json({ message: 'Insufficient account balance' });
         account.balance -= amount;
