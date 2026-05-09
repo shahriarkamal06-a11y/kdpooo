@@ -303,12 +303,11 @@ router.put('/users/:id/role', [
   }
 });
 
-// Assign custom permissions to user
+// Update user's granted permissions (simple on/off array of strings)
 router.put('/users/:id/permissions', [
   auth,
   requirePermission('system.manage'),
-  body('customPermissions').isArray().withMessage('Custom permissions must be an array'),
-  body('deniedPermissions').isArray().withMessage('Denied permissions must be an array')
+  body('grantedPermissions').isArray().withMessage('grantedPermissions must be an array of strings')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -316,35 +315,41 @@ router.put('/users/:id/permissions', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { customPermissions, deniedPermissions } = req.body;
+    const { grantedPermissions } = req.body;
+
+    // Validate that each item is a string
+    if (!grantedPermissions.every(p => typeof p === 'string')) {
+      return res.status(400).json({ message: 'All permissions must be strings' });
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { customPermissions, deniedPermissions },
+      { grantedPermissions: grantedPermissions.map(p => p.trim().toLowerCase()) },
       { new: true }
-    ).populate('roleId').populate('customPermissions').populate('deniedPermissions');
+    ).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json(user);
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      grantedPermissions: user.grantedPermissions
+    });
   } catch (error) {
     console.error('Update user permissions error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get current user's own permissions
+// Get current user's own granted permissions
 router.get('/me', auth, async (req, res) => {
   try {
-    const resolved = req.userPermissions;
     res.json({
-      permissions: resolved.permissions,
-      permissionNames: Array.from(resolved.permissionNames),
-      rolePermissions: resolved.rolePermissions,
-      customPermissions: resolved.customPermissions,
-      deniedPermissions: resolved.deniedPermissions
+      grantedPermissions: req.user.grantedPermissions || []
     });
   } catch (error) {
     console.error('Get my permissions error:', error);
@@ -352,61 +357,26 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// Get user permissions (combined from role and custom) - admin only
+// Get a user's granted permissions - admin only
 router.get('/users/:id/permissions', auth, requirePermission('system.manage'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .populate('roleId')
-      .populate('customPermissions')
-      .populate('deniedPermissions');
-
+    const user = await User.findById(req.params.id).select('name email role grantedPermissions');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    let allPermissions = [];
-
-    // Get role permissions
-    if (user.roleId) {
-      const role = await Role.findById(user.roleId).populate('permissions');
-      if (role && role.isActive !== false) {
-        allPermissions = [...role.permissions];
-      }
-    }
-
-    // Add custom permissions
-    if (user.customPermissions) {
-      allPermissions = [...allPermissions, ...user.customPermissions];
-    }
-
-    // Remove denied permissions
-    if (user.deniedPermissions) {
-      const deniedIds = user.deniedPermissions.map(p => p._id.toString());
-      allPermissions = allPermissions.filter(p => !deniedIds.includes(p._id.toString()));
-    }
-
-    // Remove duplicates
-    const seen = new Set();
-    const uniquePermissions = [];
-    for (const p of allPermissions) {
-      const id = p._id.toString();
-      if (!seen.has(id)) {
-        seen.add(id);
-        uniquePermissions.push(p);
-      }
-    }
+    // Also return all available permissions so the UI can build the toggle list
+    const allPermissions = await Permission.find().sort({ category: 1, name: 1 });
 
     res.json({
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        roleId: user.roleId
+        role: user.role
       },
-      permissions: uniquePermissions,
-      customPermissions: user.customPermissions,
-      deniedPermissions: user.deniedPermissions
+      grantedPermissions: user.grantedPermissions || [],
+      allPermissions
     });
   } catch (error) {
     console.error('Get user permissions error:', error);

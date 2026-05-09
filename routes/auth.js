@@ -91,6 +91,7 @@ router.post('/register', [
         photoUrl: user.photoUrl,
         role: user.role,
         roleId: user.roleId,
+        grantedPermissions: user.grantedPermissions || [],
         studentId: user.studentId,
         employeeId: user.employeeId,
         dateOfBirth: user.dateOfBirth,
@@ -149,6 +150,7 @@ router.post('/login', [
         photoUrl: user.photoUrl,
         role: user.role,
         roleId: user.roleId,
+        grantedPermissions: user.grantedPermissions || [],
         studentId: user.studentId,
         employeeId: user.employeeId,
         dateOfBirth: user.dateOfBirth,
@@ -174,10 +176,7 @@ router.get('/me', auth, async (req, res) => {
     const user = await User.findById(req.user.id)
       .select('-password')
       .populate('batch', 'name')
-      .populate('courses', 'name')
-      .populate('roleId')
-      .populate('customPermissions')
-      .populate('deniedPermissions');
+      .populate('courses', 'name');
     res.json(user);
   } catch (error) {
     console.error(error);
@@ -247,10 +246,7 @@ router.put('/update-profile', [
     const updatedUser = await User.findById(userId)
       .select('-password')
       .populate('batch', 'name')
-      .populate('courses', 'name')
-      .populate('roleId')
-      .populate('customPermissions')
-      .populate('deniedPermissions');
+      .populate('courses', 'name');
 
     res.json({
       message: 'Profile updated successfully',

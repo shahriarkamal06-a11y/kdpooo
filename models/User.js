@@ -63,7 +63,12 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'teacher', 'staff', 'student', 'customer'],
     default: 'student'
   },
-  // New permission system
+  // Simple on/off permission system
+  grantedPermissions: {
+    type: [String],
+    default: []
+  },
+  // Legacy permission fields (kept for compatibility)
   roleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role'
