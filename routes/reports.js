@@ -12,14 +12,14 @@ const Salary = require('../models/Salary');
 const Registration = require('../models/Registration');
 const Attendance = require('../models/Attendance');
 const Service = require('../models/Service');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   GET /api/reports/dashboard
 // @desc    Get comprehensive dashboard statistics
 // @access  Private (Admin only - staff restricted)
-router.get('/dashboard', auth, authorize('admin'), async (req, res) => {
+router.get('/dashboard', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -89,7 +89,7 @@ router.get('/dashboard', auth, authorize('admin'), async (req, res) => {
 // @route   GET /api/reports/revenue
 // @desc    Get revenue report
 // @access  Private (Admin only)
-router.get('/revenue', auth, authorize('admin'), async (req, res) => {
+router.get('/revenue', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const { startDate, endDate, groupBy = 'day' } = req.query;
     
@@ -144,7 +144,7 @@ router.get('/revenue', auth, authorize('admin'), async (req, res) => {
 // @route   GET /api/reports/students
 // @desc    Get student enrollment report
 // @access  Private (Admin only)
-router.get('/students', auth, authorize('admin'), async (req, res) => {
+router.get('/students', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -198,7 +198,7 @@ router.get('/students', auth, authorize('admin'), async (req, res) => {
 // @route   GET /api/reports/analytics
 // @desc    Get comprehensive analytics
 // @access  Private (Admin only)
-router.get('/analytics', auth, authorize('admin'), async (req, res) => {
+router.get('/analytics', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -276,7 +276,7 @@ router.get('/analytics', auth, authorize('admin'), async (req, res) => {
 // @route   GET /api/reports/comparison
 // @desc    Get comparative analytics
 // @access  Private (Admin only)
-router.get('/comparison', auth, authorize('admin'), async (req, res) => {
+router.get('/comparison', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const today = new Date();
     const thisMonth = { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date() };
@@ -312,7 +312,7 @@ router.get('/comparison', auth, authorize('admin'), async (req, res) => {
 // @route   GET /api/reports/advanced-analytics
 // @desc    Get advanced analytics with predictions and insights
 // @access  Private (Admin only)
-router.get('/advanced-analytics', auth, authorize('admin'), async (req, res) => {
+router.get('/advanced-analytics', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const { period = '6months' } = req.query;
     const today = new Date();
@@ -413,7 +413,7 @@ router.get('/advanced-analytics', auth, authorize('admin'), async (req, res) => 
 // @route   GET /api/reports/real-time
 // @desc    Get real-time metrics
 // @access  Private (Admin only)
-router.get('/real-time', auth, authorize('admin'), async (req, res) => {
+router.get('/real-time', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));

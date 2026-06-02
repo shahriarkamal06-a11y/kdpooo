@@ -95,14 +95,6 @@ mfsCustomerSchema.methods.canTakeDue = function(amount) {
     return { allowed: false, reason: 'Customer is blocked' };
   }
   
-  const availableCredit = this.creditLimit - this.currentDue;
-  if (amount > availableCredit) {
-    return { 
-      allowed: false, 
-      reason: `Exceeds credit limit. Available: ৳${availableCredit}` 
-    };
-  }
-  
   return { allowed: true };
 };
 

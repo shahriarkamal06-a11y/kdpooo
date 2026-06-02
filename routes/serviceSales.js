@@ -2,7 +2,7 @@ const express = require('express');
 const ServiceSale = require('../models/ServiceSale');
 const Service = require('../models/Service');
 const User = require('../models/User');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -105,7 +105,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/service-sales
 // @desc    Create service sale
 // @access  Private
-router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('services.create'), async (req, res) => {
   try {
     const { serviceId, quantity, unitPrice, customer, paymentStatus, paidAmount, notes } = req.body;
 
@@ -167,7 +167,7 @@ router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   PUT /api/service-sales/:id
 // @desc    Update service sale
 // @access  Private
-router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', auth, requirePermission('services.update'), async (req, res) => {
   try {
     const { paidAmount, paymentStatus, notes } = req.body;
     

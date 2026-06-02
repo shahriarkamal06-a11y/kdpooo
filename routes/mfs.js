@@ -4,13 +4,13 @@ const MFSTransaction = require('../models/MFSTransaction');
 const MFSDue = require('../models/MFSDue');
 const MFSCustomer = require('../models/MFSCustomer');
 const HandCash = require('../models/HandCash');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // ============ HAND CASH ============
 
-router.get('/handcash', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/handcash', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     let handCash = await HandCash.findOne();
     if (!handCash) {
@@ -24,7 +24,7 @@ router.get('/handcash', auth, authorize('admin', 'staff'), async (req, res) => {
   }
 });
 
-router.put('/handcash', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/handcash', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     const { amount } = req.body;
     let handCash = await HandCash.findOne();
@@ -44,7 +44,7 @@ router.put('/handcash', auth, authorize('admin', 'staff'), async (req, res) => {
 
 // ============ MFS ACCOUNTS ============
 
-router.get('/accounts', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/accounts', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const accounts = await MFSAccount.find().sort({ provider: 1, accountType: 1 });
     res.json(accounts);
@@ -54,7 +54,7 @@ router.get('/accounts', auth, authorize('admin', 'staff'), async (req, res) => {
   }
 });
 
-router.post('/accounts', auth, authorize('admin'), async (req, res) => {
+router.post('/accounts', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     // Check for duplicate provider + account number combination
     const existingAccount = await MFSAccount.findOne({
@@ -78,7 +78,7 @@ router.post('/accounts', auth, authorize('admin'), async (req, res) => {
   }
 });
 
-router.put('/accounts/:id', auth, authorize('admin'), async (req, res) => {
+router.put('/accounts/:id', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     // Check for duplicate provider + account number combination (excluding current account)
     const existingAccount = await MFSAccount.findOne({
@@ -107,7 +107,7 @@ router.put('/accounts/:id', auth, authorize('admin'), async (req, res) => {
   }
 });
 
-router.delete('/accounts/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/accounts/:id', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     const account = await MFSAccount.findByIdAndDelete(req.params.id);
     if (!account) return res.status(404).json({ message: 'Account not found' });
@@ -120,7 +120,7 @@ router.delete('/accounts/:id', auth, authorize('admin'), async (req, res) => {
 
 // ============ MFS TRANSACTIONS ============
 
-router.get('/transactions', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/transactions', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const { type, provider, status, startDate, endDate, page = 1, limit = 20 } = req.query;
     let query = {};
@@ -135,8 +135,6 @@ router.get('/transactions', auth, authorize('admin', 'staff'), async (req, res) 
     const transactions = await MFSTransaction.find(query)
       .populate('mfsAccount', 'provider accountType accountNumber accountName')
       .populate('handledBy', 'name')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
       .sort({ createdAt: -1 });
 
     let filteredTransactions = transactions;
@@ -150,7 +148,7 @@ router.get('/transactions', auth, authorize('admin', 'staff'), async (req, res) 
   }
 });
 
-router.post('/transactions', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/transactions', auth, requirePermission('mfs.create'), async (req, res) => {
   try {
     const { mfsAccount: accountId, amount, transactionType, isDue = false } = req.body;
     const account = await MFSAccount.findById(accountId);
@@ -212,7 +210,7 @@ router.post('/transactions', auth, authorize('admin', 'staff'), async (req, res)
 // ============ MFS CUSTOMERS ============
 
 // Get all customers
-router.get('/customers', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/customers', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const { status, search } = req.query;
     let query = {};
@@ -236,7 +234,7 @@ router.get('/customers', auth, authorize('admin', 'staff'), async (req, res) => 
 });
 
 // Get customer by phone
-router.get('/customers/phone/:phone', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/customers/phone/:phone', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const customer = await MFSCustomer.findOne({ phone: req.params.phone });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
@@ -244,8 +242,7 @@ router.get('/customers/phone/:phone', auth, authorize('admin', 'staff'), async (
     // Get customer's due history
     const dues = await MFSDue.find({ customer: customer._id })
       .populate('mfsAccount', 'provider accountNumber')
-      .sort({ createdAt: -1 })
-      .limit(20);
+      .sort({ createdAt: -1 });
 
     res.json({ customer, dues });
   } catch (error) {
@@ -255,7 +252,7 @@ router.get('/customers/phone/:phone', auth, authorize('admin', 'staff'), async (
 });
 
 // Get customer by ID
-router.get('/customers/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/customers/:id', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const customer = await MFSCustomer.findById(req.params.id);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
@@ -263,8 +260,7 @@ router.get('/customers/:id', auth, authorize('admin', 'staff'), async (req, res)
     // Get customer's due history
     const dues = await MFSDue.find({ customer: customer._id })
       .populate('mfsAccount', 'provider accountNumber')
-      .sort({ createdAt: -1 })
-      .limit(20);
+      .sort({ createdAt: -1 });
 
     res.json({ customer, dues });
   } catch (error) {
@@ -274,7 +270,7 @@ router.get('/customers/:id', auth, authorize('admin', 'staff'), async (req, res)
 });
 
 // Create or update customer
-router.post('/customers', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/customers', auth, requirePermission('mfs.create'), async (req, res) => {
   try {
     const { name } = req.body;
     
@@ -297,7 +293,7 @@ router.post('/customers', auth, authorize('admin', 'staff'), async (req, res) =>
 });
 
 // Update customer
-router.put('/customers/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/customers/:id', auth, requirePermission('mfs.update'), async (req, res) => {
   try {
     const customer = await MFSCustomer.findByIdAndUpdate(
       req.params.id,
@@ -315,7 +311,7 @@ router.put('/customers/:id', auth, authorize('admin', 'staff'), async (req, res)
 });
 
 // Delete customer
-router.delete('/customers/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/customers/:id', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     const customer = await MFSCustomer.findById(req.params.id);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
@@ -341,7 +337,7 @@ router.delete('/customers/:id', auth, authorize('admin'), async (req, res) => {
 });
 
 // Update customer credit limit
-router.put('/customers/:id/credit-limit', auth, authorize('admin'), async (req, res) => {
+router.put('/customers/:id/credit-limit', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     const { creditLimit } = req.body;
     const customer = await MFSCustomer.findById(req.params.id);
@@ -359,7 +355,7 @@ router.put('/customers/:id/credit-limit', auth, authorize('admin'), async (req, 
 });
 
 // Block/Unblock customer
-router.put('/customers/:id/status', auth, authorize('admin'), async (req, res) => {
+router.put('/customers/:id/status', auth, requirePermission('mfs.manage'), async (req, res) => {
   try {
     const { status } = req.body;
     const customer = await MFSCustomer.findById(req.params.id);
@@ -379,7 +375,7 @@ router.put('/customers/:id/status', auth, authorize('admin'), async (req, res) =
 // ============ MFS DUES ============
 
 // Get all dues
-router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/dues', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const { status, provider, startDate, endDate } = req.query;
     let query = {};
@@ -423,7 +419,7 @@ router.get('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Create a due transaction (account balance decreases, hand cash does NOT increase)
-router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/dues', auth, requirePermission('mfs.create'), async (req, res) => {
   try {
     const { mfsAccount: accountId, amount, transactionType, customerId, notes, dueDate, paymentMethod } = req.body;
 
@@ -511,7 +507,7 @@ router.post('/dues', auth, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Collect payment for a due
-router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/dues/:id/collect', auth, requirePermission('mfs.update'), async (req, res) => {
   try {
     const { amount, notes, paymentMethod, mfsAccount: accountId } = req.body;
     const due = await MFSDue.findById(req.params.id).populate('customer');
@@ -605,7 +601,7 @@ router.post('/dues/:id/collect', auth, authorize('admin', 'staff'), async (req, 
 
 // ============ STATS ============
 
-router.get('/stats', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/stats', auth, requirePermission('mfs.read'), async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

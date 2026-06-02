@@ -50,10 +50,6 @@ router.get('/public', async (req, res) => {
 // Create notice (admin, staff, teacher only)
 router.post('/', auth, requirePermission('notices.create'), async (req, res) => {
   try {
-    // Check role manually
-    if (!['admin', 'staff', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
     const { title, message, recipients, targetBatch, targetStudent, priority, category, isPublic } = req.body;
     
     const notice = new Notice({
@@ -84,10 +80,6 @@ router.post('/', auth, requirePermission('notices.create'), async (req, res) => 
 // Update notice
 router.put('/:id', auth, requirePermission('notices.update'), async (req, res) => {
   try {
-    if (!['admin', 'staff', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-    
     const { title, message, recipients, targetBatch, targetStudent, priority, category, isPublic } = req.body;
     
     const notice = await Notice.findByIdAndUpdate(

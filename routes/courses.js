@@ -1,6 +1,6 @@
 const express = require('express');
 const Course = require('../models/Course');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -44,7 +44,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/courses
 // @desc    Create course
 // @access  Private (Admin, Staff)
-router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('courses.create'), async (req, res) => {
   try {
     const { name, description, duration, fee, syllabus, prerequisites } = req.body;
     
@@ -79,7 +79,7 @@ router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   PUT /api/courses/:id
 // @desc    Update course
 // @access  Private (Admin, Staff)
-router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', auth, requirePermission('courses.update'), async (req, res) => {
   try {
     const { syllabus, ...updateData } = req.body;
     
@@ -111,7 +111,7 @@ router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   DELETE /api/courses/:id
 // @desc    Delete course
 // @access  Private (Admin only)
-router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/:id', auth, requirePermission('courses.delete'), async (req, res) => {
   try {
     const course = await Course.findByIdAndDelete(req.params.id);
 

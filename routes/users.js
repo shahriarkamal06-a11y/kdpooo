@@ -1,28 +1,28 @@
 const express = require('express');
 const User = require('../models/User');
-const { auth, authorize, requirePermission } = require('../middleware/auth');
+const { auth, authorize, requirePermission, requireAnyPermission, hasPermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   GET /api/users
 // @desc    Get all users with filtering
 // @access  Private (Admin, Staff, Teacher - view only students)
-router.get('/', auth, requirePermission('users.read'), async (req, res) => {
+router.get('/', auth, requireAnyPermission('users.read', 'users.manage', 'attendance.read', 'attendance.manage', 'salaries.read', 'salaries.manage'), async (req, res) => {
   try {
     const { role, search, page = 1, limit = 10 } = req.query;
     
     let query = {};
-    
-    // Teachers can only view students
-    if (req.user.role === 'teacher') {
-      query.role = 'student';
-    } else if (role) {
+
+    if (role) {
       query.role = role;
+    } else if (!hasPermission(req, 'users.read')) {
+      // Users with only attendance/salary permissions default to staff/teachers
+      query.role = { $in: ['staff', 'teacher'] };
     }
-    
-    // Staff and teachers cannot access admin/staff data
-    if (req.user.role === 'staff') {
-      if (!role || ['admin'].includes(role)) {
+
+    // Staff without users.read cannot access admin data
+    if (req.user.role === 'staff' && !hasPermission(req, 'users.read')) {
+      if (!role || role === 'admin') {
         query.role = { $in: ['student', 'teacher', 'customer'] };
       }
     }
@@ -60,7 +60,7 @@ router.get('/', auth, requirePermission('users.read'), async (req, res) => {
 // @route   POST /api/users
 // @desc    Create new user
 // @access  Private (Admin, Staff only)
-router.post('/', auth, requirePermission('users.create'), authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('users.create'), async (req, res) => {
   try {
     const { name, nameEnglish, nameBangla, fatherName, motherName, email, phone, mobile, guardianPhone, guardianMobile, photoUrl, photoPublicId, password, role, address, permanentAddress, presentAddress, dateOfBirth, gender, nidOrBirth, education, qualification, experience, specialization, salary, joiningDate, businessName, nid, batch, courses } = req.body;
 
@@ -189,7 +189,7 @@ router.get('/:id', auth, async (req, res) => {
 router.put('/:id', auth, requirePermission('users.update'), async (req, res) => {
   try {
     // Check if user can update this profile
-    if (req.user.id !== req.params.id && !['admin', 'staff'].includes(req.user.role)) {
+    if (req.user.id !== req.params.id && !hasPermission(req, 'users.update')) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -252,7 +252,7 @@ router.put('/:id', auth, requirePermission('users.update'), async (req, res) => 
 // @route   DELETE /api/users/:id
 // @desc    Delete user
 // @access  Private (Admin only)
-router.delete('/:id', auth, requirePermission('users.delete'), authorize('admin'), async (req, res) => {
+router.delete('/:id', auth, requirePermission('users.delete'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -289,7 +289,7 @@ router.delete('/:id', auth, requirePermission('users.delete'), authorize('admin'
 // @route   POST /api/users/:id/due-amount
 // @desc    Add due amount for customer
 // @access  Private (Admin, Staff)
-router.post('/:id/due-amount', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/:id/due-amount', auth, requirePermission('users.manage'), async (req, res) => {
   try {
     const { amount, description } = req.body;
     const customerId = req.params.id;
@@ -326,7 +326,7 @@ router.post('/:id/due-amount', auth, authorize('admin', 'staff'), async (req, re
 // @route   POST /api/users/:id/collect-due
 // @desc    Collect due amount from customer
 // @access  Private (Admin, Staff)
-router.post('/:id/collect-due', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/:id/collect-due', auth, requirePermission('users.manage'), async (req, res) => {
   try {
     const { amount, paymentMethod = 'cash', description } = req.body;
     const customerId = req.params.id;

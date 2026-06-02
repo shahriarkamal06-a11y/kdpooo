@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 // Get settings
 router.get('/', auth, async (req, res) => {
@@ -18,7 +18,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Update course prices (Admin only)
-router.put('/course-prices', auth, authorize('admin'), async (req, res) => {
+router.put('/course-prices', auth, requirePermission('system.manage'), async (req, res) => {
   try {
     const { course3MonthPrice, course6MonthPrice } = req.body;
     

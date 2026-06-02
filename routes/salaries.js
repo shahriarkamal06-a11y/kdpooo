@@ -2,7 +2,7 @@ const express = require('express');
 const Salary = require('../models/Salary');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/salaries/generate
 // @desc    Generate salary for employee
 // @access  Private (Admin, Staff)
-router.post('/generate', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/generate', auth, requirePermission('salaries.create'), async (req, res) => {
   try {
     const { employeeId, month, year, bonus = 0, deductions = 0, notes } = req.body;
 
@@ -110,7 +110,7 @@ router.post('/generate', auth, authorize('admin', 'staff'), async (req, res) => 
 // @route   PUT /api/salaries/:id/pay
 // @desc    Pay salary
 // @access  Private (Admin, Staff)
-router.put('/:id/pay', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id/pay', auth, requirePermission('salaries.update'), async (req, res) => {
   try {
     const { amount, notes } = req.body;
 

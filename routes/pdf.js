@@ -68,7 +68,7 @@ const User = require('../models/User');
 const StudentFee = require('../models/StudentFee');
 const Attendance = require('../models/Attendance');
 const Transaction = require('../models/Transaction');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 const { getDatasetExport, getExportFilename } = require('../utils/pdfExport');
 
 const router = express.Router();
@@ -76,7 +76,7 @@ const router = express.Router();
 // @route   GET /api/pdf/admin/:dataset
 // @desc    Generate admin PDF export for supported datasets
 // @access  Private (Admin only)
-router.get('/admin/:dataset', auth, authorize('admin'), async (req, res) => {
+router.get('/admin/:dataset', auth, requirePermission('reports.read'), async (req, res) => {
     try {
         const exportData = await getDatasetExport(req.params.dataset, req.query);
         const filename = getExportFilename(req.params.dataset);

@@ -1,13 +1,13 @@
 const express = require('express');
 const Transaction = require('../models/Transaction');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // @route   GET /api/transactions/stats
 // @desc    Get transaction statistics
 // @access  Private (Admin, Staff)
-router.get('/stats', auth, authorize('admin', 'staff'), async (req, res) => {
+router.get('/stats', auth, requirePermission('reports.read'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -124,7 +124,7 @@ router.get('/', auth, async (req, res) => {
 // @route   POST /api/transactions
 // @desc    Create transaction
 // @access  Private (Admin, Staff)
-router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', auth, requirePermission('transactions.create'), async (req, res) => {
   try {
     const transaction = new Transaction({
       ...req.body,
@@ -144,7 +144,7 @@ router.post('/', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   PUT /api/transactions/:id
 // @desc    Update transaction
 // @access  Private (Admin, Staff)
-router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', auth, requirePermission('transactions.update'), async (req, res) => {
   try {
     const transaction = await Transaction.findByIdAndUpdate(
       req.params.id,
@@ -166,7 +166,7 @@ router.put('/:id', auth, authorize('admin', 'staff'), async (req, res) => {
 // @route   DELETE /api/transactions/:id
 // @desc    Delete transaction
 // @access  Private (Admin only)
-router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+router.delete('/:id', auth, requirePermission('transactions.delete'), async (req, res) => {
   try {
     const transaction = await Transaction.findByIdAndDelete(req.params.id);
 
