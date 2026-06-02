@@ -19,10 +19,6 @@ const mfsCustomerSchema = new mongoose.Schema({
   nid: String,
   
   // Credit management
-  creditLimit: {
-    type: Number,
-    default: 0
-  },
   currentDue: {
     type: Number,
     default: 0
@@ -84,10 +80,7 @@ mfsCustomerSchema.index({ phone: 1 }, { sparse: true }); // sparse so null phone
 mfsCustomerSchema.index({ name: 1 });
 mfsCustomerSchema.index({ status: 1 });
 
-// Virtual for available credit
-mfsCustomerSchema.virtual('availableCredit').get(function() {
-  return Math.max(0, this.creditLimit - this.currentDue);
-});
+
 
 // Method to check if customer can take more due
 mfsCustomerSchema.methods.canTakeDue = function(amount) {
@@ -113,8 +106,9 @@ mfsCustomerSchema.methods.updateTrustScore = function() {
   let adjustment = 0;
   if (this.currentDue === 0) {
     adjustment = 10;
-  } else if (this.currentDue > this.creditLimit * 0.8) {
-    adjustment = -20;
+  } else if (this.currentDue > 0) {
+    // Basic adjustment if they have due without credit limit check
+    adjustment = -10;
   }
   
   this.trustScore = Math.max(0, Math.min(100, baseScore + adjustment));

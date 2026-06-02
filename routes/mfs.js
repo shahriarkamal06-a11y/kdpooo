@@ -336,23 +336,7 @@ router.delete('/customers/:id', auth, requirePermission('mfs.manage'), async (re
   }
 });
 
-// Update customer credit limit
-router.put('/customers/:id/credit-limit', auth, requirePermission('mfs.manage'), async (req, res) => {
-  try {
-    const { creditLimit } = req.body;
-    const customer = await MFSCustomer.findById(req.params.id);
-    
-    if (!customer) return res.status(404).json({ message: 'Customer not found' });
-    
-    customer.creditLimit = creditLimit;
-    await customer.save();
-    
-    res.json(customer);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+
 
 // Block/Unblock customer
 router.put('/customers/:id/status', auth, requirePermission('mfs.manage'), async (req, res) => {
@@ -391,7 +375,7 @@ router.get('/dues', auth, requirePermission('mfs.read'), async (req, res) => {
 
     let dues = await MFSDue.find(query)
       .populate('mfsAccount', 'provider accountType accountNumber accountName')
-      .populate('customer', 'name phone creditLimit currentDue trustScore status')
+      .populate('customer', 'name phone currentDue trustScore status')
       .populate('handledBy', 'name')
       .populate('payments.collectedBy', 'name')
       .sort({ createdAt: -1 });
@@ -495,7 +479,7 @@ router.post('/dues', auth, requirePermission('mfs.create'), async (req, res) => 
 
     await due.populate([
       { path: 'mfsAccount', select: 'provider accountType accountNumber accountName' },
-      { path: 'customer', select: 'name phone creditLimit currentDue trustScore status' },
+      { path: 'customer', select: 'name phone currentDue trustScore status' },
       { path: 'handledBy', select: 'name' }
     ]);
 
@@ -587,7 +571,7 @@ router.post('/dues/:id/collect', auth, requirePermission('mfs.update'), async (r
 
     await due.populate([
       { path: 'mfsAccount', select: 'provider accountType accountNumber accountName' },
-      { path: 'customer', select: 'name phone creditLimit currentDue trustScore status' },
+      { path: 'customer', select: 'name phone currentDue trustScore status' },
       { path: 'handledBy', select: 'name' },
       { path: 'payments.collectedBy', select: 'name' }
     ]);
